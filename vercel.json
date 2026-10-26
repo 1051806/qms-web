@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "builds": [
+    {"src": "index.html", "use": "@vercel/static"},
+    {"src": "api/login.py", "use": "@vercel/python"},
+    {"src": "api/query.py", "use": "@vercel/python"}
+  ],
+  "routes": [
+    {"src": "/", "dest": "/index.html"},
+    {"src": "/api/login", "dest": "/api/login.py"},
+    {"src": "/api/query", "dest": "/api/query.py"},
+    {"src": "/(.+)", "dest": "/index.html"}
+  ]
+}
