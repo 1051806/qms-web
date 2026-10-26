@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QMS中厚数据查询</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:#f5f6f8;color:#333;min-height:100vh}
+
+/* ===== 登录页 ===== */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.login-box{background:#fff;border-radius:12px;box-shadow:0 2px 20px rgba(0,0,0,.08);padding:40px;width:100%;max-width:380px}
+.login-box h2{text-align:center;font-size:20px;color:#1a5276;margin-bottom:6px}
+.login-box .sub{text-align:center;font-size:13px;color:#999;margin-bottom:28px}
+.login-box .field{margin-bottom:16px}
+.login-box .field label{display:block;font-size:13px;color:#666;margin-bottom:6px}
+.login-box .field input{width:100%;padding:11px 14px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;transition:.2s;font-family:inherit}
+.login-box .field input:focus{border-color:#1a5276;box-shadow:0 0 0 3px rgba(26,82,118,.08)}
+.login-box .hint{font-size:11px;color:#bbb;margin-top:4px}
+.btn-login{width:100%;padding:13px;background:#1a5276;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:.2s;font-family:inherit;margin-top:8px}
+.btn-login:hover{background:#2471a3}
+.btn-login:disabled{opacity:.5;cursor:not-allowed}
+.login-err{text-align:center;color:#e74c3c;font-size:13px;margin-top:12px;min-height:20px}
+
+/* ===== 查询页 ===== */
+.app{max-width:1200px;margin:0 auto;padding:16px}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.06);margin-bottom:14px}
+.topbar .title{font-size:16px;font-weight:600;color:#1a5276}
+.topbar .user{font-size:12px;color:#999}
+.topbar .user button{margin-left:10px;color:#e74c3c;border:none;background:none;cursor:pointer;font-size:12px;font-family:inherit}
+
+.query-box{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.06);padding:18px 20px;margin-bottom:14px}
+.query-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.query-row .field{display:flex;flex-direction:column;gap:4px}
+.query-row .field label{font-size:11px;color:#999;font-weight:500}
+.query-row .field input,.query-row .field select{padding:9px 12px;border:1px solid #e0e0e0;border-radius:6px;font-size:13px;outline:none;transition:.2s;font-family:inherit;background:#fff}
+.query-row .field input:focus,.query-row .field select:focus{border-color:#1a5276}
+.btn-query{padding:9px 28px;background:#1a5276;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:.2s}
+.btn-query:hover{background:#2471a3}
+.btn-query:disabled{opacity:.5}
+.btn-sm{padding:6px 14px;font-size:12px;border:1px solid #ddd;background:#fff;color:#555;border-radius:5px;cursor:pointer;font-family:inherit;transition:.2s}
+.btn-sm:hover{border-color:#1a5276;color:#1a5276}
+
+/* 结果 */
+.result{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.06);overflow:hidden}
+.result-empty{padding:50px;text-align:center;color:#ccc;font-size:14px}
+.result-loading{padding:50px;text-align:center;color:#999}
+.spinner{width:28px;height:28px;border:3px solid #eee;border-top-color:#1a5276;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.result-info{padding:12px 18px;border-bottom:1px solid #eee;font-size:13px;color:#666;display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+.result-info b{color:#333;font-weight:600}
+.result-info .up{color:#e74c3c}
+.result-info .down{color:#2980b9}
+
+/* 数据表 - EDA风格 */
+.tbl-wrap{overflow-x:auto}
+table.data{width:100%;border-collapse:collapse;font-size:13px}
+table.data th,table.data td{border:1px solid #e8e8e8;padding:6px 10px;text-align:center;white-space:nowrap}
+table.data th{background:#f8f9fa;font-weight:600;color:#555;font-size:12px}
+table.data th small{display:block;font-weight:400;color:#999;font-size:10px}
+table.data td.label{background:#f8f9fa;font-weight:600;color:#555;text-align:left}
+table.data td.alert{color:#e74c3c;font-weight:700}
+table.data tr:hover td{background:#f5faff}
+table.data tr:hover td.label{background:#eef5fc}
+.tbl-stat td{background:#f0f7ff;font-weight:600}
+
+/* 日历 */
+.cal{display:none;position:absolute;background:#fff;border:1px solid #e0e0e0;box-shadow:0 4px 16px rgba(0,0,0,.12);padding:12px;z-index:999;border-radius:8px;width:220px}
+.cal-hdr{display:flex;gap:6px;margin-bottom:8px}
+.cal-hdr select{flex:1;padding:4px 6px;border:1px solid #e0e0e0;border-radius:4px;font-size:12px;font-family:inherit}
+.cal-tbl{width:100%;border-collapse:collapse}
+.cal-tbl th{font-size:10px;color:#bbb;padding:3px}
+.cal-tbl td{text-align:center;padding:5px;cursor:pointer;font-size:12px;border-radius:3px;transition:.1s}
+.cal-tbl td:hover{background:#e8f4f8}
+.cal-tbl td.sel{background:#1a5276;color:#fff;font-weight:700}
+.cal-tbl td.today{border:1px solid #f39c12}
+.cal-tbl td.empty{color:#eee;cursor:default}
+.cal-tbl td.empty:hover{background:none}
+.cal-ft{text-align:center;margin-top:8px}
+.cal-ft button{font-size:11px;border:1px solid #e0e0e0;padding:3px 10px;border-radius:4px;cursor:pointer;background:#fff;font-family:inherit;margin:0 2px}
+</style>
+</head>
+<body>
+
+<!-- 登录页 -->
+<div id="loginPage" class="login-wrap">
+  <div class="login-box">
+    <h2>QMS 中厚数据查询</h2>
+    <p class="sub">舜宇光学 · 成型量产技术三线</p>
+    <div class="field">
+      <label>工号</label>
+      <input type="text" id="loginUser" placeholder="如 1051806" value="1051806">
+    </div>
+    <div class="field">
+      <label>SSO密码</label>
+      <input type="password" id="loginPass" placeholder="SSO登录密码">
+    </div>
+    <div class="field">
+      <label>MAC地址</label>
+      <input type="text" id="loginMac" placeholder="如 8C:16:45:45:2A:89" value="8C:16:45:45:2A:89">
+      <div class="hint">本机MAC地址，cmd运行 ipconfig /all 查找</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <input type="checkbox" id="rememberMe" style="cursor:pointer">
+      <label for="rememberMe" style="font-size:13px;color:#666;cursor:pointer">记住工号和密码</label>
+    </div>
+    <button class="btn-login" id="btnLogin" onclick="doLogin()">登 录</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- 查询页 -->
+<div id="appPage" style="display:none">
+  <div class="app">
+    <div class="topbar">
+      <span class="title">QMS中厚数据查询</span>
+      <span class="user">已登录 · <span id="userId"></span> <button onclick="logout()">退出</button> <button onclick="showApiSettings()" style="color:#1a5276;border:none;background:none;cursor:pointer;font-size:12px;font-family:inherit">⚙后端</button></span>
+    </div>
+    <div class="query-box">
+      <div class="query-row">
+        <div class="field"><label>件号</label><input type="text" id="partNumber" value="B6320A" style="width:120px"></div>
+        <div class="field"><label>镜号</label><input type="text" id="mirrorNumber" value="902" style="width:70px"></div>
+        <div class="field"><label>数据类型</label><select id="dataType" style="width:100px">
+          <option value="1">常规数据</option>
+          <option value="0">非常规数据</option>
+        </select></div>
+        <div class="field"><label>开始日期</label><input type="text" id="startDate" readonly style="width:110px;cursor:pointer;background:#fff" placeholder="近7天"></div>
+        <div class="field"><label>结束日期</label><input type="text" id="endDate" readonly style="width:110px;cursor:pointer;background:#fff" placeholder="今天"></div>
+        <button class="btn-query" id="btnQuery" onclick="doQuery()">查 询</button>
+      </div>
+    </div>
+    <div class="result" id="resultArea">
+      <div class="result-empty">请输入查询条件后点击「查询」</div>
+    </div>
+  </div>
+</div>
+
+<!-- 日历 -->
+<div class="cal" id="calPopup">
+  <div class="cal-hdr">
+    <select id="calYear" onchange="calRender()"></select>
+    <select id="calMonth" onchange="calRender()"></select>
+  </div>
+  <table class="cal-tbl"><tr><th>日</th><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th></tr></table>
+  <div id="calBody"></div>
+  <div class="cal-ft"><button onclick="calClear()">清除</button><button onclick="calToday()">今天</button><button onclick="calClose()">关闭</button></div>
+</div>
+
+<script>
+var API = localStorage.getItem('qms_api') || 'https://thick-beans-clean.loca.lt';
+var TOKEN = sessionStorage.getItem('qms_token') || '';
+var calTarget=null, calY=new Date().getFullYear(), calM=new Date().getMonth();
+
+function fmt(d){var m=String(d.getMonth()+1).padStart(2,'0');var dd=String(d.getDate()).padStart(2,'0');return d.getFullYear()+'-'+m+'-'+dd;}
+
+// ===== 页面加载时恢复记住的凭据 =====
+(function(){
+  var saved = localStorage.getItem('qms_saved_login');
+  if(saved){
+    try{
+      var d = JSON.parse(saved);
+      document.getElementById('loginUser').value = d.u || '';
+      document.getElementById('loginPass').value = d.p || '';
+      document.getElementById('loginMac').value = d.m || '';
+      document.getElementById('rememberMe').checked = true;
+    }catch(e){}
+  }
+})();
+
+// ===== 登录 =====
+function doLogin(){
+  var u=document.getElementById('loginUser').value.trim();
+  var p=document.getElementById('loginPass').value;
+  var m=document.getElementById('loginMac').value.trim();
+  var rem=document.getElementById('rememberMe').checked;
+  if(!u||!p||!m){document.getElementById('loginErr').textContent='请填写完整';return;}
+  // 保存或清除凭据
+  if(rem){
+    localStorage.setItem('qms_saved_login', JSON.stringify({u:u,p:p,m:m}));
+  }else{
+    localStorage.removeItem('qms_saved_login');
+  }
+  var btn=document.getElementById('btnLogin');btn.disabled=true;btn.textContent='登录中...';
+  document.getElementById('loginErr').textContent='';
+  fetch(API+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:u,password:p,mac:m})})
+  .then(r=>r.json()).then(d=>{
+    btn.disabled=false;btn.textContent='登 录';
+    if(d.ok&&d.token){
+      TOKEN=d.token;sessionStorage.setItem('qms_token',TOKEN);
+      sessionStorage.setItem('qms_user',u);
+      showApp(u);
+    }else{
+      document.getElementById('loginErr').textContent=d.error||'登录失败';
+    }
+  }).catch(e=>{btn.disabled=false;btn.textContent='登 录';document.getElementById('loginErr').textContent='网络错误';});
+}
+
+function showApp(u){
+  document.getElementById('loginPage').style.display='none';
+  document.getElementById('appPage').style.display='block';
+  document.getElementById('userId').textContent=u;
+}
+function logout(){sessionStorage.clear();localStorage.removeItem('qms_token');TOKEN='';location.reload();}
+
+// 自动登录（已存token）
+if(TOKEN){showApp(sessionStorage.getItem('qms_user')||'');}
+
+// ===== 日历 =====
+function showCal(e,id){
+  calTarget=id;var inp=document.getElementById(id);
+  if(inp.value){var p=inp.value.split('-');if(p.length==3){calY=+p[0];calM=+p[1]-1;}}
+  initCal();calRender();
+  var pop=document.getElementById('calPopup');pop.style.display='block';
+  var r=inp.getBoundingClientRect();
+  pop.style.left=r.left+'px';pop.style.top=(r.bottom+4)+'px';
+}
+function initCal(){
+  var y=document.getElementById('calYear'),m=document.getElementById('calMonth');
+  if(!y.options.length){var cy=new Date().getFullYear();for(var i=cy-5;i<=cy+1;i++)y.add(new Option(i+'年',i));}
+  if(!m.options.length){for(var i=1;i<=12;i++)m.add(new Option(i+'月',i-1));}
+  y.value=calY;m.value=calM;
+}
+function calRender(){
+  var fd=new Date(calY,calM,1).getDay(),dim=new Date(calY,calM+1,0).getDate();
+  var today=fmt(new Date()),sel=document.getElementById(calTarget).value;
+  var h='<table class="cal-tbl">',day=1;
+  for(var w=0;w<6;w++){h+='<tr>';for(var d=0;d<7;d++){
+    if(w==0&&d<fd){h+='<td class="empty"></td>';}
+    else if(day<=dim){var mm=String(calM+1).padStart(2,'0'),dd=String(day).padStart(2,'0');
+      var ds=calY+'-'+mm+'-'+dd,cls='';if(ds==sel)cls='sel';else if(ds==today)cls='today';
+      h+='<td class="'+cls+'" onclick="calSel(\''+ds+'\')">'+day+'</td>';day++;}
+    else{h+='<td class="empty"></td>';}
+  }h+='</tr>';if(day>dim)break;}
+  var rows=(h.match(/<\/tr>/g)||[]).length;
+  for(var r=rows;r<6;r++)h+='<tr><td class="empty"></td><td class="empty"></td><td class="empty"></td><td class="empty"></td><td class="empty"></td><td class="empty"></td><td class="empty"></td></tr>';
+  h+='</table>';document.getElementById('calBody').innerHTML=h;
+}
+function calSel(ds){if(calTarget)document.getElementById(calTarget).value=ds;document.getElementById('calPopup').style.display='none';}
+function calToday(){calSel(fmt(new Date()));}
+function calClear(){if(calTarget)document.getElementById(calTarget).value='';document.getElementById('calPopup').style.display='none';}
+function calClose(){document.getElementById('calPopup').style.display='none';}
+document.getElementById('startDate').onclick=function(e){showCal(e,'startDate');};
+document.getElementById('endDate').onclick=function(e){showCal(e,'endDate');};
+document.addEventListener('click',function(e){if(!e.target.closest('#calPopup')&&!e.target.matches('#startDate,#endDate'))document.getElementById('calPopup').style.display='none';});
+
+// ===== 查询 =====
+function doQuery(){
+  var part=document.getElementById('partNumber').value.trim();
+  var mirror=document.getElementById('mirrorNumber').value.trim();
+  var sfcg=document.getElementById('dataType').value;
+  var today=new Date();
+  var end=document.getElementById('endDate').value||fmt(today);
+  var start=document.getElementById('startDate').value||fmt(new Date(today.getTime()-7*864e5));
+  if(!part||!mirror){alert('请填写件号和镜号');return;}
+  var btn=document.getElementById('btnQuery');btn.disabled=true;btn.textContent='查询中...';
+  var ra=document.getElementById('resultArea');
+  ra.innerHTML='<div class="result-loading"><div class="spinner"></div>查询中...</div>';
+  fetch(API+'/api/query',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({token:TOKEN,part:part,mirror:mirror,start:start,end:end,sfcg:sfcg})})
+  .then(r=>r.json()).then(data=>{
+    btn.disabled=false;btn.textContent='查 询';
+    if(data.error){ra.innerHTML='<div class="result-empty">'+data.error+'</div>';return;}
+    renderTable(data,part,mirror,start,end);
+  }).catch(e=>{btn.disabled=false;btn.textContent='查 询';ra.innerHTML='<div class="result-empty">请求失败: '+e.message+'</div>';});
+}
+
+function renderTable(data,part,mirror,start,end){
+  var result=data.result||{};
+  var dates=[],cavities=new Set();
+  var upper=null,lower=null,projectName='';
+  for(var key in result){
+    var dv=result[key];
+    upper=dv.nkzsx;lower=dv.nkzxx;projectName=dv.cjytxmc||'中厚';
+    var dailyData=dv.dailyData||[];
+    for(var d of dailyData){
+      var ds=d.date||'';
+      dates.push({date:ds,remark:d.remark||'',data:d});
+      for(var v of(d.xhDataList||[]))cavities.add(v.cxh);
+    }
+  }
+  if(!dates.length){document.getElementById('resultArea').innerHTML='<div class="result-empty">未找到数据</div>';return;}
+  dates.sort((a,b)=>a.date>b.date?-1:1);
+
+  var html='<div class="result-info">';
+  html+='<span>件号-镜号:<b>'+part+'-'+mirror+'</b></span>';
+  html+='<span>项目:<b>'+projectName+'</b></span>';
+  if(upper)html+='<span>上限:<b class="up">'+upper+'</b></span>';
+  if(lower)html+='<span>下限:<b class="down">'+lower+'</b></span>';
+  html+='<button class="btn-sm" style="margin-left:auto" onclick="exportExcel()">导出Excel</button></div>';
+
+  html+='<div class="tbl-wrap"><table class="data"><thead><tr><th>穴号</th>';
+  for(var d of dates)html+='<th>'+d.remark+'<small>'+d.date+'</small></th>';
+  html+='</tr></thead><tbody>';
+  var cavList=[...cavities].sort((a,b)=>parseInt(a)-parseInt(b));
+  for(var cav of cavList){
+    html+='<tr><td class="label">'+cav+'</td>';
+    for(var d of dates){
+      var found=(d.data.xhDataList||[]).find(v=>v.cxh==cav);
+      var val=found?parseFloat(found.values[0]).toFixed(4):'-';
+      var cls='';
+      if(found&&upper&&parseFloat(found.values[0])>parseFloat(upper))cls='alert';
+      html+='<td class="'+cls+'">'+val+'</td>';
+    }
+    html+='</tr>';
+  }
+  for(var stat of[['maxValue','MAX'],['minValue','MIN'],['avgValue','均值']]){
+    html+='<tr class="tbl-stat"><td class="label">'+stat[1]+'</td>';
+    for(var d of dates){
+      var v=d[stat[0]];
+      html+='<td>'+(v!==undefined?parseFloat(v).toFixed(4):'-')+'</td>';
+    }
+    html+='</tr>';
+  }
+  html+='</tbody></table></div>';
+  document.getElementById('resultArea').innerHTML=html;
+  window._data={part:part,mirror:mirror};
+}
+
+function exportExcel(){
+  var tbl=document.querySelector('#resultArea table.data');
+  if(!tbl){alert('请先查询数据');return;}
+  var html='<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body>'+tbl.outerHTML+'</body></html>';
+  var blob=new Blob([html],{type:'application/vnd.ms-excel'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=(window._data?.part||'data')+'-'+(window._data?.mirror||'')+'-中厚.xls';a.click();
+}
+
+// 回车登录
+document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key=='Enter')doLogin();});
+
+// 后端地址设置
+function showApiSettings(){
+  var cur = localStorage.getItem('qms_api') || API;
+  var v = prompt('后端服务地址（沙箱重启后找我更新）:', cur);
+  if(v!==null){
+    v = v.trim().replace(/\/$/,'');
+    localStorage.setItem('qms_api', v);
+    API = v;
+    alert('已更新后端地址: ' + v + '\n页面将刷新...');
+    location.reload();
+  }
+}
+</script>
+</body>
+</html>
